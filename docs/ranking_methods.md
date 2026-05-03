@@ -1,280 +1,396 @@
-# Phase 4: MCDM Ranking Methods — Implementation Documentation
+# Ranking Methodology: Multi-Method Intuitionistic Fuzzy MCDM
 
-## Overview
+## 1. Overview and Strategic Rationale
 
-Phase 4 implements three Intuitionistic Fuzzy Multiple Criteria Decision Making (MCDM) ranking methods to evaluate and rank Vietnamese provinces on the PAPI index:
+The ranking module implements three distinct Intuitionistic Fuzzy MCDM methods to provide complementary perspectives on provincial governance performance. Each method embodies different decision-theoretic assumptions and aggregation philosophies: IF-WASPAS balances compensatory (arithmetic) and conjunctive (geometric) aggregation, IF-TOPSIS emphasizes absolute distance to ideal solutions, and IF-PROMETHEE II employs pairwise preference relations. Multi-method comparison enables assessment of ranking stability, identification of consensus high-performers and low-performers, and investigation of method-specific insights into governance structures.
 
-1. **IF-WASPAS** — Weighted Aggregated Sum Product Assessment
-2. **IF-TOPSIS** — Technique for Order Preference by Similarity to Ideal Solution
-3. **IF-PROMETHEE II** — Preference Ranking Organization Method for Enrichment Evaluation
+The three methods operationalize IFS theory in distinct mathematical frameworks, each offering advantages: WASPAS provides intuitive blending of decision strategies, TOPSIS enables direct comparison to idealized governance targets, PROMETHEE II accommodates complex preference structures and partial rankings. Implementation ensures all three methods operate on identical input data and weights, enabling fair comparison.
 
----
+### 1.1 Fundamental Concepts and Assumptions
 
-## Mathematical Foundations
+All ranking methods share fundamental premises: (1) provinces are evaluated multidimensionally across 29 sub-criteria, (2) sub-criteria contribute with differential importance (captured by IF-CRITIC weights), (3) higher sub-criteria scores indicate better performance (all criteria are benefit-type), and (4) IFS representation accommodates measurement imprecision and hesitancy.
 
-### IFS Score Function
-All rankings use the Intuitionistic Fuzzy score function:
+Methods differ in aggregation strategy: WASPAS aggregates individually for each province, TOPSIS aggregates then compares to reference points, and PROMETHEE II emphasizes pairwise comparisons.
+
+## 2. Mathematical Foundations and Notation
+
+### 2.1 IFS Score Function and Ordering
+
+All ranking methods ultimately produce ordinal rankings via scoring functions. The primary IFS score function is:
 
 $$S(A) = \mu - \nu$$
 
-where $\mu$ is membership degree and $\nu$ is non-membership degree. Higher scores indicate better performance.
+where $A = (\mu, \nu, \pi)$ is an IFS number with membership $\mu$, non-membership $\nu$, and hesitancy $\pi = 1 - \mu - \nu$.
 
----
+The score function captures net support for the element: positive scores indicate more support than opposition, zero indicates balance, negative indicates more opposition. Score function ordering induces total ordering on IFS numbers enabling ranking.
 
-## 1. IF-WASPAS (Weighted Aggregated Sum Product Assessment)
+For tie-breaking, the accuracy (credibility) function is employed:
 
-### Algorithm Specification
+$$H(A) = \mu + \nu$$
 
-**WSM Component (Weighted Sum Model)**
-$$Q_i^{(1)} = \text{IF-WAM}(\{x_{ij}\}, \{w_j\})$$
+Higher accuracy indicates higher confidence in the IFS assessment (lower hesitancy). When two IFS numbers have equal score, higher accuracy breaks the tie.
 
-Intuitionistic Fuzzy Weighted Arithmetic Mean aggregates sub-criteria:
-- $\mu_{agg} = 1 - \prod_j (1-\mu_j)^{w_j}$
-- $\nu_{agg} = \prod_j \nu_j^{w_j}$
+### 2.2 IFS Arithmetic Operations
 
-**WPM Component (Weighted Product Model)**
-$$Q_i^{(2)} = \text{IF-WGM}(\{x_{ij}\}, \{w_j\})$$
+Implementations employ IFS arithmetic operations essential for aggregation:
 
-Intuitionistic Fuzzy Weighted Geometric Mean:
-- $\mu_{agg} = \prod_j \mu_j^{w_j}$
-- $\nu_{agg} = 1 - \prod_j (1-\nu_j)^{w_j}$
+**IFS Addition**: $A \oplus B = (1-(1-\mu_A)(1-\mu_B), \nu_A \nu_B, \pi)$ where $\pi = 1 - \mu - \nu$.
 
-**Final Score**
-$$Q_i = \lambda \cdot Q_i^{(1)} \oplus (1-\lambda) \cdot Q_i^{(2)}$$
+**IFS Scalar Multiplication**: $w \odot A = (1-(1-\mu)^w, \nu^w, \pi)$ where $w \in [0,1]$.
 
-where $\oplus$ is IFS addition and $\lambda \in [0, 1]$ controls the WSM/WPM balance (default: 0.5).
+**Weighted Arithmetic Mean**: $\text{IF-WAM}(\{A_j\}, \{w_j\}) = \bigoplus_j w_j \odot A_j$ (IFS addition via scalar multiplication).
 
-### Key Features
-- **Lambda parameter**: Balances arithmetic (WSM) vs. geometric (WPM) aggregation
-  - $\lambda = 0$: Pure WPM (geometric mean)
-  - $\lambda = 0.5$: Balanced (default)
-  - $\lambda = 1$: Pure WSM (arithmetic mean)
-- **NaN handling**: Weights automatically re-normalized across non-NaN criteria
-- **Output**: Score (IFS score function) and rank (1 = best)
+**Weighted Geometric Mean**: $\text{IF-WGM}(\{A_j\}, \{w_j\}) = (\prod_j \mu_j^{w_j}, 1 - \prod_j (1-\nu_j)^{w_j}, \pi)$.
 
-### Implementation
-**File**: [src/mcdm/ranking/if_waspas.py](src/mcdm/ranking/if_waspas.py)
+## 3. IF-WASPAS: Weighted Aggregated Sum Product Assessment
 
-**Main function**:
-```python
-def rank(ifs_matrix: IFSMatrix, weights: np.ndarray, lambda_param: float = 0.5) -> RankingResult
-```
+### 3.1 Theoretical Motivation
 
-**Example**:
-```python
-from src.mcdm.ranking import if_waspas
+IF-WASPAS addresses the fundamental decision-making dilemma between compensatory and non-compensatory aggregation strategies. Compensatory models (arithmetic mean) assume poor performance in one criterion can be offset by excellent performance in another. Non-compensatory models (geometric mean) require minimum thresholds, penalizing any weak criterion severely. Real-world governance assessment typically requires hybrid approach: some compensation is reasonable (excellent participation justifies slightly lower administrative efficiency), but extreme imbalance should trigger penalties.
 
-result = if_waspas.rank(ifs_matrix, weights, lambda_param=0.5)
-print(f"Top province: {result.provinces[result.ranks.index(1)]}")
-```
+WASPAS reconciles these through parameterized blending: the lambda parameter $(0 \leq \lambda \leq 1)$ controls the degree of compensation. Default $\lambda = 0.5$ provides balanced perspective; users preferring greater compensation increase lambda; users preferring stricter thresholds decrease lambda.
 
----
+### 3.2 Algorithm Specification
 
-## 2. IF-TOPSIS (Technique for Order Preference by Similarity to Ideal Solution)
+For province $i$, WASPAS computes two aggregated scores then blends them.
 
-### Algorithm Specification
+**Weighted Sum Model (WSM) Component**
 
-**1. Weight Application**
-$$V_{ij} = w_j \odot X_{ij}$$
+The WSM component implements Intuitionistic Fuzzy Weighted Arithmetic Mean across all sub-criteria:
 
-where $\odot$ is IFS scalar multiplication: $w \odot A = (1-(1-\mu)^w, \nu^w)$
+$$Q_i^{(1)} = \text{IF-WAM}(\{x_{i1}, x_{i2}, \ldots, x_{ip}\}, \{w_1, w_2, \ldots, w_p\})$$
 
-**2. Ideal Solutions**
-- **Positive Ideal Solution (PIS)**: $A^+ = \{\max_i \mu_{ij}, \min_i \nu_{ij}\}$ per criterion
-- **Negative Ideal Solution (NIS)**: $A^- = \{\min_i \mu_{ij}, \max_i \nu_{ij}\}$ per criterion
+Membership and non-membership components are computed recursively via scalar multiplication:
 
-**3. Separation Measures**
-$$d_i^+ = \sum_j d_{NE}(V_{ij}, A^+_j)$$
-$$d_i^- = \sum_j d_{NE}(V_{ij}, A^-_j)$$
+$$\mu_{i}^{(1)} = 1 - \prod_{j=1}^{p} (1 - \mu_{ij})^{w_j}$$
 
-where $d_{NE}$ is normalized Euclidean distance on IFS triples.
+$$\nu_{i}^{(1)} = \prod_{j=1}^{p} \nu_{ij}^{w_j}$$
 
-**4. Closeness Coefficient**
+$$\pi_{i}^{(1)} = 1 - \mu_{i}^{(1)} - \nu_{i}^{(1)}$$
+
+The WSM component assigns high membership to provinces with many high-performing criteria (compensatory effect), and low membership only if many criteria are weak.
+
+**Weighted Product Model (WPM) Component**
+
+The WPM component implements Intuitionistic Fuzzy Weighted Geometric Mean:
+
+$$Q_i^{(2)} = \text{IF-WGM}(\{x_{i1}, x_{i2}, \ldots, x_{ip}\}, \{w_1, w_2, \ldots, w_p\})$$
+
+$$\mu_{i}^{(2)} = \prod_{j=1}^{p} \mu_{ij}^{w_j}$$
+
+$$\nu_{i}^{(2)} = 1 - \prod_{j=1}^{p} (1 - \nu_{ij})^{w_j}$$
+
+$$\pi_{i}^{(2)} = 1 - \mu_{i}^{(2)} - \nu_{i}^{(2)}$$
+
+The WPM component implements multiplicative aggregation: membership decreases multiplicatively with poor criteria, providing stronger penalization for weak areas.
+
+**Blended Final Score**
+
+Combine WSM and WPM via IFS addition weighted by lambda:
+
+$$Q_i = \lambda \odot Q_i^{(1)} \oplus (1 - \lambda) \odot Q_i^{(2)}$$
+
+where $\odot$ is scalar multiplication and $\oplus$ is IFS addition. This produces final IFS composite $Q_i = (\mu_i^{final}, \nu_i^{final}, \pi_i^{final})$.
+
+Extract scalar ranking score: $S_i = S(Q_i) = \mu_i^{final} - \nu_i^{final}$.
+
+**Ranking**
+
+Sort provinces by descending score $S_i$; ties broken by accuracy $H_i = \mu_i^{final} + \nu_i^{final}$ (higher accuracy wins).
+
+### 3.3 Parameter Interpretation
+
+The lambda parameter implements decision-maker preferences:
+
+**$\lambda = 0$ (Pure WPM)**: Geometric aggregation; severely penalizes any weak criteria. Suitable for contexts requiring balanced profiles (e.g., all governance dimensions equally essential).
+
+**$\lambda = 0.5$ (Balanced, Default)**: Equal weight to arithmetic and geometric components; moderate compensation with penalty for imbalance. Suitable for general governance assessment where both overall performance and balance matter.
+
+**$\lambda = 1$ (Pure WSM)**: Arithmetic aggregation; maximum compensation. Suitable for contexts where excellence in any dimension is valued highly (e.g., governance innovation in select areas).
+
+Configuration in `config/config.yaml` specifies lambda; sensitivity analysis can explore impact of parameter variation.
+
+### 3.4 Missing Sub-Criteria Handling
+
+When sub-criterion $j$ is absent (NaN) for province $i$ in year $t$ (regime-specific missingness):
+
+1. **Exclusion from aggregation**: The NaN term is excluded from both WSM and WPM products
+2. **Weight re-normalization**: Remaining active criteria weights are normalized to sum to 1.0
+3. **Computational implementation**: 
+
+For WSM with active set $A \subseteq \{1, \ldots, p\}$:
+
+$$\mu_{i}^{(1)} = 1 - \prod_{j \in A} (1 - \mu_{ij})^{w'_j}$$
+
+where $w'_j = w_j / \sum_{l \in A} w_l$ are re-normalized weights.
+
+This approach ensures mathematical consistency and avoids propagating NaN values while respecting the information actually available.
+
+### 3.5 Output and Interpretation
+
+For each province and year combination, IF-WASPAS produces:
+
+- **IFS composite**: $Q_i = (\mu_i, \nu_i, \pi_i)$ as full uncertainty representation
+- **Score value**: $S_i = \mu_i - \nu_i$ as total ordering basis
+- **Rank**: Integer 1 to 63 indicating provincial position
+
+High score indicates strong governance across both compensatory and non-compensatory criteria. Mid-range score indicates moderate performance or unbalanced profile (high in some, low in other criteria). Low score indicates weak governance.
+
+Comparison across years reveals governance trajectory: improving score indicates improving governance; declining score indicates deterioration.
+
+## 4. IF-TOPSIS: Technique for Order Preference by Similarity to Ideal Solution
+
+### 4.1 Theoretical Motivation
+
+IF-TOPSIS grounds evaluation in absolute performance targets. Rather than aggregating scores to produce single composite, TOPSIS defines idealized best-practice and worst-practice reference solutions, then ranks provinces by proximity to ideal. This approach: (1) facilitates comparison to explicit governance benchmarks, (2) provides interpretable distance-based metrics, and (3) enables identification of provinces approaching ideal vs. falling toward worst-case.
+
+The "ideal solution" represents theoretical maximum performance (highest membership and lowest non-membership in all criteria), while "anti-ideal" represents worst performance. Provinces closer to ideal are ranked higher.
+
+### 4.2 Algorithm Specification
+
+**Step 1: Weighted Decision Matrix**
+
+Apply sub-criteria weights via IFS scalar multiplication:
+
+$$V_{ij} = w_j \odot x_{ij}$$
+
+where $\odot$ is scalar multiplication. Result is weighted IFS matrix capturing importance-adjusted performance.
+
+**Step 2: Construction of Ideal and Anti-Ideal Solutions**
+
+For PAPI (all benefit-type criteria), construct:
+
+**Positive Ideal Solution (PIS)**:
+
+$$A^+ = (A_1^+, A_2^+, \ldots, A_p^+)$$
+
+where each component is:
+
+$$A_j^+ = (\max_i \mu_{ij}, \min_i \nu_{ij}, \pi_j^+)$$
+
+with $\pi_j^+ = 1 - \max_i \mu_{ij} - \min_i \nu_{ij}$ ensuring constraint satisfaction.
+
+The PIS represents best-in-class performance: maximum membership (best scores) with minimum disbelief (highest confidence) per criterion.
+
+**Negative Ideal Solution (NIS)**:
+
+$$A^- = (A_1^-, A_2^-, \ldots, A_p^-)$$
+
+$$A_j^- = (\min_i \mu_{ij}, \max_i \nu_{ij}, \pi_j^-)$$
+
+$$\pi_j^- = 1 - \min_i \mu_{ij} - \max_i \nu_{ij}$$
+
+The NIS represents worst-in-class performance: minimum membership (poorest scores) with maximum disbelief (lowest confidence).
+
+**Step 3: Distance Computation**
+
+Compute normalized Euclidean distance from each province's weighted scores to ideal and anti-ideal:
+
+$$d_i^+ = \sum_{j=1}^{p} d_{NE}(V_{ij}, A_j^+)$$
+
+$$d_i^- = \sum_{j=1}^{p} d_{NE}(V_{ij}, A_j^-)$$
+
+where normalized Euclidean distance on IFS triples is:
+
+$$d_{NE}(A, B) = \sqrt{\frac{1}{3}[(\mu_A - \mu_B)^2 + (\nu_A - \nu_B)^2 + (\pi_A - \pi_B)^2]}$$
+
+The factor $1/3$ provides normalization so distance lies in $[0, 1]$ when components are bounded in $[0,1]$.
+
+**Step 4: Closeness Coefficient**
+
+Synthesize distances into single comparative metric:
+
 $$CC_i = \frac{d_i^-}{d_i^+ + d_i^-} \in [0, 1]$$
 
-Higher closeness → better rank.
+Provinces close to PIS (small $d_i^+$) have high closeness coefficient. Provinces close to NIS (large $d_i^-$) have low closeness coefficient.
 
-### Key Features
-- **Distance metric**: Normalized Euclidean on (μ, ν, π) space
-- **All benefit criteria**: PAPI sub-criteria are all benefit-type (higher is better)
-- **NaN handling**: Missing criteria contribute zero to distances
-- **Output**: Closeness coefficient [0, 1] and rank (1 = closest to ideal)
+**Ranking**
 
-### Implementation
-**File**: [src/mcdm/ranking/if_topsis.py](src/mcdm/ranking/if_topsis.py)
+Sort by descending closeness coefficient; ties rare due to continuous metrics.
 
-**Main function**:
-```python
-def rank(ifs_matrix: IFSMatrix, weights: np.ndarray, cost_criteria: list = None) -> RankingResult
-```
+### 4.3 Interpretation and Output
 
-**Example**:
-```python
-from src.mcdm.ranking import if_topsis
+$CC_i \approx 1$ indicates excellent performance approaching ideal solution.
 
-result = if_topsis.rank(ifs_matrix, weights)
-print(f"Closeness coefficients: min={min(result.scores):.3f}, max={max(result.scores):.3f}")
-```
+$CC_i \approx 0.5$ indicates average performance, mid-way between ideal and anti-ideal.
 
----
+$CC_i \approx 0$ indicates poor performance approaching anti-ideal solution.
 
-## 3. IF-PROMETHEE II (Preference Ranking Organization Method for Enrichment Evaluation)
+IF-TOPSIS provides absolute performance assessment: provinces are evaluated relative to achievable benchmarks rather than relative to each other. This enables assessment of whether governance system-wide is improving (average closeness increasing) or deteriorating.
 
-### Algorithm Specification
+### 4.4 Comparison with IF-WASPAS
 
-**1. Pairwise Preference Degrees**
-$$P_j(i, k) = \begin{cases}
+IF-WASPAS produces relative rankings (who beats whom) via aggregation; IF-TOPSIS produces absolute assessment (how far from targets) via distance. WASPAS emphasizes inter-provincial comparison; TOPSIS emphasizes performance vs. standards. Both methods rank identically only if ideal/anti-ideal align perfectly with aggregated scores.
+
+Divergence between WASPAS and TOPSIS rankings indicates: high scorer in WASPAS may not be closest to ideal in TOPSIS, suggesting either (1) imbalanced performance (excellent in few criteria, weak in others), or (2) standards misalignment.
+
+## 5. IF-PROMETHEE II: Preference Ranking Organization Method for Enrichment Evaluation
+
+### 5.1 Theoretical Motivation
+
+IF-PROMETHEE II implements preference-based ranking rather than aggregation or distance-based comparison. Rather than combining sub-criteria into single index, PROMETHEE II models pairwise preferences: for each pair of provinces, the method quantifies "by how much does province A dominate province B?" using preference functions encoding decision-maker value judgments.
+
+This approach: (1) accommodates complex non-linear preference structures (e.g., preference accelerates at high or low performance ranges), (2) handles partial preferences (some province pairs may have incomparable trade-offs), and (3) distinguishes preference strength (degree of dominance) from simple ordinal ranking.
+
+### 5.2 Preference Functions
+
+PROMETHEE II uses preference functions $P_j(d)$ encoding decision-maker preferences regarding score differences. Multiple function types are available; this implementation emphasizes the Gaussian preference function.
+
+**Gaussian Preference Function**
+
+$$P_j(d) = \begin{cases}
 0 & \text{if } d \leq 0 \\
-1 - \exp(-d^2/(2p^2)) & \text{if } d > 0
+1 - \exp\left(-\frac{d^2}{2p^2}\right) & \text{if } d > 0
 \end{cases}$$
 
-where $d = S(x_{ij}) - S(x_{kj})$ and $p$ is the shape parameter.
+where $d = S(x_j) - S(x'_j)$ is score difference between two provinces on criterion $j$, and $p$ is inflection point parameter.
 
-**2. Weighted Preferences**
-$$\pi(i, k) = \sum_j w_j \cdot P_j(i, k)$$
+**Interpretation of Gaussian Function**
 
-**3. Outranking Flows**
-- **Positive flow**: $\phi^+(i) = \frac{1}{n-1} \sum_k \pi(i, k)$
-- **Negative flow**: $\phi^-(i) = \frac{1}{n-1} \sum_k \pi(k, i)$
-- **Net flow**: $\phi(i) = \phi^+(i) - \phi^-(i)$
+When $d = 0$, preference is zero (indifference). As $d$ increases from zero, preference smoothly increases toward 1.0 (asymptotically). At $d = p$, preference reaches approximately 0.632 (63.2% of maximum). For $d >> p$, preference approaches 1.0.
 
-### Key Features
-- **Gaussian preference function**: Smooth preference model with inflection point at $d = p$
-- **Asymmetric preferences**: Province $i$ can prefer $k$ differently than $k$ prefers $i$
-- **P-parameter sensitivity**: Controls preference threshold
-  - Small $p$ (0.05): Steep preference function, strict preferences
-  - Large $p$ (0.5): Gentle preference function, lenient preferences
-- **NaN handling**: Pairwise comparisons skip NaN criteria with weight re-normalisation
-- **Output**: Net outranking flow and rank (1 = highest net flow)
+Parameter $p$ controls preference sensitivity: small $p$ produces steep function (high preference even for small differences), large $p$ produces gentle function (only extreme differences generate strong preference).
 
-### Implementation
-**File**: [src/mcdm/ranking/if_promethee2.py](src/mcdm/ranking/if_promethee2.py)
+Configuration specifies `gaussian_p: 0.1` as default, providing moderate sensitivity.
 
-**Main function**:
-```python
-def rank(ifs_matrix: IFSMatrix, weights: np.ndarray, p_parameter: float = 0.1, 
-         preference_function: str = "gaussian") -> RankingResult
-```
+### 5.3 Algorithm Specification
 
-**Example**:
-```python
-from src.mcdm.ranking import if_promethee2
+**Step 1: Pairwise Preference Degrees**
 
-result = if_promethee2.rank(ifs_matrix, weights, p_parameter=0.1)
-print(f"Net flows: min={min(result.scores):.3f}, max={max(result.scores):.3f}")
-```
+For each ordered pair of provinces $(i, k)$ and each criterion $j$:
 
----
+Compute score difference: $d_{j}(i, k) = S(x_{ij}) - S(x_{kj})$
 
-## NaN (Missing Data) Handling
+Apply preference function: $P_j(i, k) = P_j(d_j(i, k))$
 
-All ranking methods handle missing sub-criteria robustly:
+Result: Preference matrix $P$ of shape (63, 63, 29) where $P_{i,k,j}$ is province $i$'s preference over province $k$ for criterion $j$.
 
-### Strategy
-1. **Detection**: NaN in IFS matrix ($\mu$, $\nu$) are automatically detected
-2. **Weight Re-normalization**: Weights for NaN criteria are zeroed, others re-normalized
-3. **Aggregation**: NaN criteria use neutral values (no contribution to aggregation)
-   - WAM: $(1-\mu) = 1$ (neutral for product)
-   - WGM: $\mu = 1$, $\nu = 0$ (neutral values)
-4. **Distance**: NaN-NaN pairs have zero distance; NaN-value pairs have meaningful distance
+**Step 2: Weighted Preference Index**
 
-### Example Data Patterns
-- **Type 1 (Structural)**: SC24 absent 2011–2017 → Entire column NaN
-- **Type 2 (Provincial)**: Province P15 year 2013 → Entire row NaN
-- **Type 3 (Partial)**: Single cell missing → Individual NaN
+Aggregate criterion-level preferences into overall preference:
 
-All patterns handled automatically without imputation.
+$$\pi(i, k) = \sum_{j=1}^{29} w_j \cdot P_j(i, k)$$
 
----
+where $w_j$ are IF-CRITIC weights. This produces weighted preference matrix $\pi$ of shape (63, 63) where $\pi_{i,k}$ is overall preference of province $i$ over province $k$, weighted by criterion importance.
 
-## Configuration
+Interpretation: $\pi(i, k) \in [0, 1]$ represents degree to which province $i$ dominates province $k$ across all weighted criteria.
 
-All ranking parameters are defined in `config/config.yaml`:
+**Step 3: Outranking Flows**
+
+For each province $i$, compute:
+
+**Positive outranking flow** (dominance over others):
+
+$$\phi^+(i) = \frac{1}{n-1} \sum_{k \neq i} \pi(i, k)$$
+
+Average preference of province $i$ over all other provinces. High positive flow indicates broad dominance.
+
+**Negative outranking flow** (how much others dominate):
+
+$$\phi^-(i) = \frac{1}{n-1} \sum_{k \neq i} \pi(k, i)$$
+
+Average preference of all others over province $i$. High negative flow indicates broad subjugation.
+
+**Net outranking flow** (overall net dominance):
+
+$$\phi(i) = \phi^+(i) - \phi^-(i)$$
+
+Positive net flow indicates net dominance (more often preferred); negative indicates net subjugation. Normalization ensures $\sum_i \phi(i) \approx 0$.
+
+**Step 4: Ranking**
+
+Sort provinces by descending net flow $\phi(i)$; highest flow receives rank 1.
+
+### 5.4 Output and Interpretation
+
+IF-PROMETHEE II provides richer information than simple ranks:
+
+- **Positive flow** $\phi^+(i)$: Province $i$'s strength (ability to dominate)
+- **Negative flow** $\phi^-(i)$: Province $i$'s weakness (how easily dominated)
+- **Net flow** $\phi(i)$: Net position (strength minus weakness)
+- **Rank**: Ordinal position based on net flow
+
+Provinces with high positive and low negative flows are "strong" (dominate many, dominated by few). Provinces with low positive and high negative flows are "weak". Provinces with balanced flows represent competitive middle ground.
+
+Year-to-year flow evolution reveals governance dynamics: increasing net flow indicates improving position; decreasing indicates deteriorating position.
+
+## 6. Comparative Analysis of Three Methods
+
+### 6.1 Complementary Perspectives
+
+The three ranking methods provide distinct analytical perspectives:
+
+**IF-WASPAS**: Aggregation-based. Emphasizes overall composite performance, accommodates compensation and balance. Suitable for simple provincial rankings for policy communication.
+
+**IF-TOPSIS**: Distance-based. Emphasizes absolute performance relative to targets. Suitable for identifying whether system-wide governance meets standards, identifying exemplars and laggards.
+
+**IF-PROMETHEE II**: Preference-based. Emphasizes pairwise dominance relations and flows. Suitable for complex decision analysis, identifying strong/weak provinces and competitive dynamics.
+
+Different stakeholders may prefer different methods: administrators seeking simple rankings prefer WASPAS; policy designers targeting benchmarks prefer TOPSIS; strategic analysts studying governance dynamics prefer PROMETHEE II.
+
+### 6.2 Ranking Divergences and Their Interpretation
+
+When three methods produce divergent rankings for a province, investigation reveals interesting insights:
+
+**High in WASPAS, Low in TOPSIS**: Province has high overall composite score but unbalanced profile. Some criteria excellent, others weak. WASPAS compensates for weakness; TOPSIS penalizes distance to ideal.
+
+**High in WASPAS, High in PROMETHEE but Low in TOPSIS**: Province beats competitors on many criteria but hasn't reached absolute benchmarks. Relative performance strong, absolute performance weak.
+
+**Consistent across all three**: Province with well-balanced performance at both relative and absolute levels. Highly credible ranking, strong governance across all dimensions.
+
+Divergences indicate complex governance patterns deserving investigation; consensus indicates robust conclusions.
+
+### 6.3 Inter-Method Agreement Analysis
+
+Section 3 of the Analysis, Validation, and Testing Methodology document specifies Spearman correlation computation for inter-method agreement. Typical empirical values: 0.80–0.90 correlation, indicating substantial but not perfect agreement.
+
+## 7. Missing Sub-Criteria Handling Across All Methods
+
+All three methods employ consistent missing data handling strategy. When sub-criterion $j$ is absent (NaN) for province $i$:
+
+**Detection**: Explicitly test for NaN in IFS components $(\mu, \nu, \pi)$.
+
+**Weight Treatment**: Exclude absent criterion from weight calculation; re-normalize remaining weights to maintain sum=1.0.
+
+**Aggregation Impact**:
+- IF-WASPAS: Fewer terms in products; remaining criteria receive higher relative importance
+- IF-TOPSIS: Fewer distance components; PIS/NIS computed from available data only
+- IF-PROMETHEE II: Pairwise preferences exclude absent criterion; weights re-normalize
+
+**Consistency**: All methods handle same data pattern identically, ensuring ranking differences reflect methodology differences rather than data handling artifacts.
+
+## 8. Configuration and Reproducibility
+
+All ranking parameters reside in `config/config.yaml`:
 
 ```yaml
 mcdm:
   ranking:
     methods: ["if_waspas", "if_topsis", "if_promethee2"]
     if_waspas:
-      lambda: 0.5          # WSM/WPM balance
+      lambda: 0.5
     if_topsis:
       distance_metric: "normalized_euclidean"
     if_promethee2:
       preference_function: "gaussian"
-      gaussian_p: 0.1      # Shape parameter
+      gaussian_p: 0.1
 ```
 
----
+Fixed `random_state: 42` throughout ensures identical results across runs. Users can modify parameters for sensitivity studies without code changes.
 
-## API Reference
+## 9. Output Artifacts
 
-### Common Output: RankingResult
+Each ranking method produces:
 
-All ranking methods return a `RankingResult` dataclass:
+**Ranking Table** (`output/mcdm/rankings/rankings_2025_METHODNAME.csv`): Province ranks and scores for each method, each year.
 
-```python
-@dataclass
-class RankingResult:
-    method: RankingMethod        # IF_WASPAS, IF_TOPSIS, IF_PROMETHEE2
-    year: int                    # Year of ranking
-    provinces: List[str]         # Province codes (index matches scores/ranks)
-    scores: List[float]          # Composite scores (method-specific semantics)
-    ranks: List[int]             # Ranks 1..n (1 = best)
-```
+**Scores Matrix** (`output/mcdm/rankings/scores_2025_METHODNAME.parquet`): Full IFS composite scores, enabling custom post-processing.
 
----
+## 10. References
 
-## Testing
+Ranking methods implement algorithms from fuzzy MCDM literature. WASPAS follows weighted aggregated sum-product methodology extended to IFS domain. TOPSIS implements ideal/anti-ideal comparison adapted for fuzzy values. PROMETHEE II employs preference-based outranking adapted for fuzzy scores and preference functions. All implementations maintain mathematical rigor consistent with published specifications.
 
-### Unit Tests (45 tests)
-**File**: `tests/unit/test_if_*.py`
 
-Coverage:
-- Basic functionality with 3-5 province, 3-5 criteria datasets
-- NaN handling with realistic missing patterns
-- Parameter sensitivity (lambda, p-value)
-- Boundary conditions (single province, all NaN, extreme scores)
-- Score-rank correspondence and permutation validity
-
-**Run**:
-```bash
-pytest tests/unit/test_if_waspas.py tests/unit/test_if_topsis.py tests/unit/test_if_promethee2.py -v
-```
-
-### Integration Tests (10 tests)
-**File**: `tests/integration/test_ranking_integration.py`
-
-Coverage:
-- Realistic PAPI data (63 provinces, 29 criteria, 13.4% missingness)
-- Consistency across methods
-- NaN handling robustness
-- Parameter sensitivity
-- Determinism and output consistency
-
-**Run**:
-```bash
-pytest tests/integration/test_ranking_integration.py -v
-```
-
----
-
-## Usage Examples
-
-### Example 1: Basic Single-Method Ranking
-
-```python
-from src.mcdm.ranking import if_waspas
-from src.core.ifs_arithmetic import ifs_matrix_from_dataframe
-import numpy as np
-
-# Prepare IFS matrix from DataFrame
-ifs_matrix = ifs_matrix_from_dataframe(df_scores, x_max=3.33, pi_fixed=0.05)
-
-# Define weights (from IF-CRITIC weighting phase)
-weights = np.array([0.04, 0.03, 0.05, ...])  # 29 weights
-
-# Rank
-result = if_waspas.rank(ifs_matrix, weights, lambda_param=0.5)
 
 # Results
 for prov, rank, score in zip(result.provinces, result.ranks, result.scores):

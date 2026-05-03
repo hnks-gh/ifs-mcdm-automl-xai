@@ -30,7 +30,7 @@ import pandas as pd
 import pytest
 
 from src.core.exceptions import DataIntegrityError, ForecastingError
-from src.core.schema import load_config
+from src.core.data_loader import load_config
 from src.ml.forecasting.autogluon_forecaster import (
     aggregate_forecasts,
     build_timeseries_dataframes,
@@ -38,6 +38,13 @@ from src.ml.forecasting.autogluon_forecaster import (
     save_forecast_output,
     validate_forecast_output,
 )
+
+# Check if AutoGluon is available
+try:
+    import autogluon.timeseries
+    HAS_AUTOGLUON = True
+except ImportError:
+    HAS_AUTOGLUON = False
 
 
 # =============================================================================
@@ -169,13 +176,12 @@ class TestLoadImputedPanel:
     
     def test_validate_unique_provinces(self, temp_output_dir):
         """Test validation of unique province count."""
-        # Create panel with wrong number of unique provinces
+        # Create panel with wrong number of unique provinces (29 instead of 63)
         invalid_panel = pd.DataFrame({
-            "Province": [f"P{i:02d}" for i in range(1, 30)] * 30,  # 29 unique
-            "Year": sorted([y for y in range(2011, 2025) for _ in range(29)]),
+            "Province": [f"P{i:02d}" for i in range(1, 30)] * 14,  # 29 unique provinces repeated 14 times
+            "Year": sorted([y for y in range(2011, 2025) for _ in range(29)]),  # 14 years × 29 = 406 rows
             "SC11": np.random.uniform(0, 3.33, 29 * 14),
         })
-        invalid_panel = invalid_panel.iloc[:882]  # Trim to 882
         parquet_path = temp_output_dir / "invalid.parquet"
         invalid_panel.to_parquet(parquet_path)
         
@@ -184,27 +190,24 @@ class TestLoadImputedPanel:
     
     def test_validate_unique_years(self, temp_output_dir):
         """Test validation of unique year count."""
+        # Create panel with wrong number of years (10 instead of 14)
         invalid_panel = pd.DataFrame({
-            "Province": [f"P{i:02d}" for i in range(1, 64)] * 10,  # 10 years
-            "Year": sorted([y for y in range(2011, 2021) for _ in range(63)]),
+            "Province": [f"P{i:02d}" for i in range(1, 64)] * 10,  # 63 provinces repeated 10 times
+            "Year": sorted([y for y in range(2011, 2021) for _ in range(63)]),  # 10 years × 63 = 630 rows
             "SC11": np.random.uniform(0, 3.33, 63 * 10),
         })
-        invalid_panel = invalid_panel.iloc[:882]  # Trim to 882
         parquet_path = temp_output_dir / "invalid.parquet"
         invalid_panel.to_parquet(parquet_path)
         
         with pytest.raises(DataIntegrityError, match="14"):
             load_imputed_panel(parquet_path)
     
-    def test_validate_nan_cells(self, temp_output_dir):
+    def test_validate_nan_cells(self, synthetic_imputed_panel, temp_output_dir):
         """Test validation failure: NaN cells in imputed panel."""
-        # Create panel with NaN cells
-        invalid_panel = pd.DataFrame({
-            "Province": [f"P{i:02d}" for i in range(1, 64)] * 14,
-            "Year": sorted([y for y in range(2011, 2025) for _ in range(63)]),
-            "SC11": np.random.uniform(0, 3.33, 882),
-        })
+        # Create panel with NaN cells by copying the synthetic one and introducing NaN
+        invalid_panel = synthetic_imputed_panel.copy()
         invalid_panel.loc[0, "SC11"] = np.nan  # Introduce NaN
+        
         parquet_path = temp_output_dir / "invalid.parquet"
         invalid_panel.to_parquet(parquet_path)
         
@@ -216,6 +219,7 @@ class TestLoadImputedPanel:
 # Tests: build_timeseries_dataframes
 # =============================================================================
 
+@pytest.mark.skipif(not HAS_AUTOGLUON, reason="AutoGluon not installed")
 class TestBuildTimeseriesDataframes:
     """Tests for build_timeseries_dataframes function."""
     
@@ -521,6 +525,7 @@ class TestSaveForecastOutput:
 # Integration Tests
 # =============================================================================
 
+@pytest.mark.skipif(not HAS_AUTOGLUON, reason="AutoGluon not installed")
 class TestIntegration:
     """Integration tests for forecasting pipeline."""
     
@@ -557,6 +562,7 @@ class TestIntegration:
 # Edge Cases & Error Handling
 # =============================================================================
 
+@pytest.mark.skipif(not HAS_AUTOGLUON, reason="AutoGluon not installed")
 class TestEdgeCases:
     """Tests for edge cases and error handling."""
     

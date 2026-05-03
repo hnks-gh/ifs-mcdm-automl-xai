@@ -4,6 +4,29 @@
 # =============================================================================
 
 # ---------------------------------------------------------------------------
+# Pipeline Orchestration — Control which components to execute
+# ---------------------------------------------------------------------------
+pipeline:
+  # Enable/disable entire pipeline branches (default: all enabled)
+  mcdm_enabled: true               # Run MCDM pipeline (weighting, ranking, analysis)
+  ml_enabled: true                 # Run ML pipeline (imputation, forecasting, SHAP)
+  
+  # MCDM sub-components (only if mcdm_enabled=true)
+  mcdm_weighting_enabled: true     # Compute IF-CRITIC weights
+  mcdm_ranking_enabled: true       # Compute IF-WASPAS, IF-TOPSIS, IF-PROMETHEE II rankings
+  mcdm_analysis_enabled: true      # Temporal stability & sensitivity analysis
+  
+  # ML sub-components (only if ml_enabled=true)
+  ml_imputation_enabled: true      # Run MICE imputation
+  ml_forecasting_enabled: true     # Run AutoGluon forecasting for 2025
+  ml_shap_enabled: true            # Run SHAP explainability
+  ml_forecast_ranking_enabled: true  # Apply MCDM ranking to 2025 forecasted values
+  
+  # Verbosity
+  log_level: "INFO"                # DEBUG, INFO, WARNING, ERROR
+  
+
+# ---------------------------------------------------------------------------
 # Data
 # ---------------------------------------------------------------------------
 data:

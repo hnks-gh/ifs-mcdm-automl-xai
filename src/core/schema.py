@@ -302,12 +302,52 @@ class OutputConfig(BaseModel):
     figure_format: str = "png"
 
 
+class PipelineConfig(BaseModel):
+    """
+    Pipeline orchestration configuration — controls which components execute.
+    
+    Attributes
+    ----------
+    mcdm_enabled : bool
+        Enable the entire MCDM pipeline (weighting + ranking + analysis).
+    ml_enabled : bool
+        Enable the entire ML pipeline (imputation + forecasting + SHAP).
+    mcdm_weighting_enabled : bool
+        Enable MCDM weighting computation (only if mcdm_enabled=True).
+    mcdm_ranking_enabled : bool
+        Enable MCDM ranking methods (only if mcdm_enabled=True).
+    mcdm_analysis_enabled : bool
+        Enable MCDM analysis (temporal stability, sensitivity) (only if mcdm_enabled=True).
+    ml_imputation_enabled : bool
+        Enable MICE imputation (only if ml_enabled=True).
+    ml_forecasting_enabled : bool
+        Enable AutoGluon forecasting (only if ml_enabled=True).
+    ml_shap_enabled : bool
+        Enable SHAP explainability (only if ml_enabled=True).
+    ml_forecast_ranking_enabled : bool
+        Apply MCDM ranking to 2025 forecasted values (only if ml_enabled=True).
+    log_level : str
+        Logging level: DEBUG, INFO, WARNING, ERROR.
+    """
+    mcdm_enabled: bool = True
+    ml_enabled: bool = True
+    mcdm_weighting_enabled: bool = True
+    mcdm_ranking_enabled: bool = True
+    mcdm_analysis_enabled: bool = True
+    ml_imputation_enabled: bool = True
+    ml_forecasting_enabled: bool = True
+    ml_shap_enabled: bool = True
+    ml_forecast_ranking_enabled: bool = True
+    log_level: str = Field("INFO", pattern="^(DEBUG|INFO|WARNING|ERROR)$")
+
+
 class AppConfig(BaseModel):
     """
     Root application configuration.
 
     Loaded from ``config/config.yaml`` via :func:`src.core.data_loader.load_config`.
     """
+    pipeline: PipelineConfig = Field(default_factory=PipelineConfig)
     data: DataConfig
     ifs: IFSConfig = Field(default_factory=IFSConfig)
     mcdm: MCDMConfig = Field(default_factory=MCDMConfig)
