@@ -255,8 +255,10 @@ class TestEndToEndIntegration(unittest.TestCase):
         config.pipeline.mcdm_enabled = False
         config.pipeline.ml_enabled = True
 
-        with patch.object(MLPipeline, 'run') as mock_ml, \
+        with patch("src.pipeline.runner.load_config") as mock_load_config, \
+             patch.object(MLPipeline, 'run') as mock_ml, \
              patch.object(MCDMPipeline, 'run') as mock_mcdm:
+            mock_load_config.return_value = config
             runner = PipelineRunner("config/config.yaml")
             runner.run()
 
@@ -320,9 +322,11 @@ class TestErrorHandling(unittest.TestCase):
         """Test ML pipeline error handling for missing imputed data."""
         pipeline = MLPipeline(self.config)
 
-        # Try to load imputed panel that doesn't exist
-        with self.assertRaises(ForecastingError):
-            pipeline._load_imputed_panel()
+        # Mock the imputed panel path to not exist
+        with patch("pathlib.Path.exists") as mock_exists:
+            mock_exists.return_value = False
+            with self.assertRaises(ForecastingError):
+                pipeline._load_imputed_panel()
 
 
 # =============================================================================

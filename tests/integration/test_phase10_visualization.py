@@ -26,7 +26,7 @@ class TestVisualizationIntegration:
         subcriteria_weights = pd.DataFrame(
             np.random.rand(14, 29) * 0.1,
             index=range(2011, 2025),
-            columns=[f'SC{i:02d}' for i in range(11, 84)]
+            columns=[f'SC{i:02d}' for i in range(11, 40)]
         )
         
         rankings_dict = {
