@@ -9,7 +9,7 @@
 pipeline:
   # Enable/disable entire pipeline branches (default: all enabled)
   mcdm_enabled: true               # Run MCDM pipeline (weighting, ranking, analysis)
-  ml_enabled: true                 # Run ML pipeline (imputation, forecasting, SHAP)
+  ml_enabled: false                # Run ML pipeline (imputation, forecasting, SHAP)
   
   # MCDM sub-components (only if mcdm_enabled=true)
   mcdm_weighting_enabled: true     # Compute IF-CRITIC weights
