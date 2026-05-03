@@ -1,0 +1,36 @@
+# =============================================================================
+# logging.yaml — Loguru-based structured logging configuration
+# =============================================================================
+
+version: 1
+
+loguru:
+  # -------------------------------------------------------------------------
+  # Console handler — human-readable coloured output
+  # -------------------------------------------------------------------------
+  console:
+    sink: "stderr"
+    level: "INFO"
+    colorize: true
+    format: >-
+      <green>{time:YYYY-MM-DD HH:mm:ss}</green> |
+      <level>{level: <8}</level> |
+      <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> -
+      <level>{message}</level>
+    backtrace: true
+    diagnose: false              # disable in production to avoid secret leaks
+
+  # -------------------------------------------------------------------------
+  # File handler — full structured JSON for machine parsing / audit
+  # -------------------------------------------------------------------------
+  file:
+    sink: "logs/run_{time:YYYYMMDD_HHmmss}.log"
+    level: "DEBUG"
+    colorize: false
+    format: "{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} | {message}"
+    rotation: "50 MB"
+    retention: "30 days"
+    compression: "zip"
+    backtrace: true
+    diagnose: false
+    enqueue: true               # async-safe for multi-threaded AutoGluon runs

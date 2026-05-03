@@ -1,0 +1,326 @@
+# =============================================================================
+# config.yaml — Master configuration for IFS-MCDM-AutoML-XAI Framework
+# All pipeline parameters are defined here. No magic numbers in source code.
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Data
+# ---------------------------------------------------------------------------
+data:
+  csv_dir: "data/csv"
+  codebook_dir: "data/codebook"
+
+  years: [2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+
+  province_col: "Province"
+  n_provinces: 63
+  n_subcriteria: 29
+  n_criteria: 8
+
+  # All 29 sub-criteria column names as they appear in the CSV files
+  all_subcriteria:
+    - SC11
+    - SC12
+    - SC13
+    - SC14
+    - SC21
+    - SC22
+    - SC23
+    - SC24
+    - SC31
+    - SC32
+    - SC33
+    - SC41
+    - SC42
+    - SC43
+    - SC44
+    - SC51
+    - SC52
+    - SC53
+    - SC54
+    - SC61
+    - SC62
+    - SC63
+    - SC64
+    - SC71
+    - SC72
+    - SC73
+    - SC81
+    - SC82
+    - SC83
+
+  # Sub-criteria per criterion (for two-level hierarchy)
+  criteria_subcriteria_map:
+    C01: [SC11, SC12, SC13, SC14]
+    C02: [SC21, SC22, SC23, SC24]
+    C03: [SC31, SC32, SC33]
+    C04: [SC41, SC42, SC43, SC44]
+    C05: [SC51, SC52, SC53, SC54]
+    C06: [SC61, SC62, SC63, SC64]
+    C07: [SC71, SC72, SC73]
+    C08: [SC81, SC82, SC83]
+
+  # All sub-criteria are benefit type (higher = better); none are cost type
+  cost_criteria: []
+
+  # -------------------------------------------------------------------------
+  # Year Regimes: determined by which sub-criteria columns are structurally
+  # present (not all-NaN) in each year.
+  # R1: 2011-2017 — SC24, SC71-SC83 absent (7 columns missing) = 22 active
+  # R2: 2018      — SC83 absent only (1 column missing)         = 28 active
+  # R3: 2019-2020 — all 29 sub-criteria present                 = 29 active
+  # R4: 2021-2024 — SC52 absent (1 column missing)              = 28 active
+  # -------------------------------------------------------------------------
+  regimes:
+    R1:
+      years: [2011, 2012, 2013, 2014, 2015, 2016, 2017]
+      absent_subcriteria: [SC24, SC71, SC72, SC73, SC81, SC82, SC83]
+      active_subcriteria:
+        - SC11
+        - SC12
+        - SC13
+        - SC14
+        - SC21
+        - SC22
+        - SC23
+        - SC31
+        - SC32
+        - SC33
+        - SC41
+        - SC42
+        - SC43
+        - SC44
+        - SC51
+        - SC52
+        - SC53
+        - SC54
+        - SC61
+        - SC62
+        - SC63
+        - SC64
+      n_active: 22
+
+    R2:
+      years: [2018]
+      absent_subcriteria: [SC83]
+      active_subcriteria:
+        - SC11
+        - SC12
+        - SC13
+        - SC14
+        - SC21
+        - SC22
+        - SC23
+        - SC24
+        - SC31
+        - SC32
+        - SC33
+        - SC41
+        - SC42
+        - SC43
+        - SC44
+        - SC51
+        - SC52
+        - SC53
+        - SC54
+        - SC61
+        - SC62
+        - SC63
+        - SC64
+        - SC71
+        - SC72
+        - SC73
+        - SC81
+        - SC82
+      n_active: 28
+
+    R3:
+      years: [2019, 2020]
+      absent_subcriteria: []
+      active_subcriteria:
+        - SC11
+        - SC12
+        - SC13
+        - SC14
+        - SC21
+        - SC22
+        - SC23
+        - SC24
+        - SC31
+        - SC32
+        - SC33
+        - SC41
+        - SC42
+        - SC43
+        - SC44
+        - SC51
+        - SC52
+        - SC53
+        - SC54
+        - SC61
+        - SC62
+        - SC63
+        - SC64
+        - SC71
+        - SC72
+        - SC73
+        - SC81
+        - SC82
+        - SC83
+      n_active: 29
+
+    R4:
+      years: [2021, 2022, 2023, 2024]
+      absent_subcriteria: [SC52]
+      active_subcriteria:
+        - SC11
+        - SC12
+        - SC13
+        - SC14
+        - SC21
+        - SC22
+        - SC23
+        - SC24
+        - SC31
+        - SC32
+        - SC33
+        - SC41
+        - SC42
+        - SC43
+        - SC44
+        - SC51
+        - SC53
+        - SC54
+        - SC61
+        - SC62
+        - SC63
+        - SC64
+        - SC71
+        - SC72
+        - SC73
+        - SC81
+        - SC82
+        - SC83
+      n_active: 28
+
+  # Province-year combinations that are entirely blank (Type 2 missing)
+  blank_province_years:
+    - {year: 2014, province: "P15"}
+    - {year: 2014, province: "P56"}
+    - {year: 2021, province: "P14"}
+    - {year: 2021, province: "P15"}
+    - {year: 2021, province: "P18"}
+    - {year: 2023, province: "P14"}
+    - {year: 2023, province: "P47"}
+    - {year: 2024, province: "P17"}
+    - {year: 2024, province: "P52"}
+
+
+# ---------------------------------------------------------------------------
+# IFS (Intuitionistic Fuzzy Set) conversion
+# ---------------------------------------------------------------------------
+ifs:
+  # Maximum observable score used for linear normalization to [0,1]
+  score_max: 3.33
+  # Hesitancy assignment method: "complement" => pi = 1 - mu - nu
+  # with nu = 1 - mu - epsilon where epsilon is a small fixed hesitancy
+  hesitancy_method: "fixed_pi"
+  fixed_pi_value: 0.05          # constant hesitancy for all scores
+  # mu = x / score_max * (1 - fixed_pi_value)
+  # nu = 1 - mu - fixed_pi_value
+  # Result: always mu + nu + pi = 1 with pi = fixed_pi_value
+
+
+# ---------------------------------------------------------------------------
+# MCDM — Weighting
+# ---------------------------------------------------------------------------
+mcdm:
+  weighting:
+    method: "two_level_if_critic"
+    # Stage 1: CRITIC within each criterion group (sub-criteria weights)
+    # Stage 2: CRITIC across criterion aggregates (criteria weights)
+    correlation_method: "pearson"    # used on score-function S(x)=mu-nu values
+    min_variance_threshold: 1.0e-9   # skip CRITIC if column variance < threshold
+    weight_blend_method: "proportional_years"  # blend regime weights by year count
+
+  ranking:
+    methods:
+      - "if_waspas"
+      - "if_topsis"
+      - "if_promethee2"
+
+    if_waspas:
+      lambda_param: 0.5              # 0=pure WPM, 1=pure WSM, 0.5=balanced
+
+    if_topsis:
+      distance_metric: "normalized_euclidean"
+
+    if_promethee2:
+      preference_function: "gaussian"
+      p_parameter: 0.1              # Gaussian preference function spread
+
+
+# ---------------------------------------------------------------------------
+# MCDM Analysis
+# ---------------------------------------------------------------------------
+analysis:
+  weighting:
+    temporal_stability:
+      window_size: 5
+      n_windows: 10                  # windows 1-10 covering years 2011-2020 start
+      metrics: ["rmsd", "cv"]
+
+    sensitivity:
+      n_simulations: 10000
+      perturbation_distribution: "dirichlet"
+      dirichlet_concentration_scale: 10.0  # alpha = base_weight * scale
+      correlation_metric: "kendall_tau_b_weighted"
+      random_state: 42
+
+  ranking:
+    inter_method_correlation: "spearman"
+    discriminatory_power_metric: "iqr"
+    temporal_persistence_metric: "spearman_yoy"
+
+
+# ---------------------------------------------------------------------------
+# Machine Learning
+# ---------------------------------------------------------------------------
+ml:
+  imputation:
+    method: "mice"                   # sklearn IterativeImputer
+    max_iter: 10
+    n_nearest_features: null         # null = use all features
+    initial_strategy: "mean"         # initial fill strategy
+    random_state: 42
+    # Panel is reshaped to (882, 29) before fitting — no leakage
+    # Imputed values clipped to [0.0, 3.33] post-imputation
+
+  forecasting:
+    target_year: 2025
+    prediction_length: 1
+    presets: "best_quality"
+    refit_full: true
+    known_covariates_names: null     # no future-known covariates
+    eval_metric: "MASE"
+    freq: "Y"                        # annual frequency
+    random_state: 42
+    model_save_dir: "output/ml/ag_models"  # AutoGluon models saved here
+
+  shap:
+    explainer_type: "auto"           # auto-selects TreeExplainer or KernelExplainer
+    n_background_samples: 100        # KernelExplainer background sample size
+    random_state: 42
+
+
+# ---------------------------------------------------------------------------
+# Output
+# ---------------------------------------------------------------------------
+output:
+  mcdm_dir: "output/mcdm"
+  ml_dir: "output/ml"
+  figures_dir: "output/figures"
+  reports_dir: "output/reports"
+  tabular_format: "csv"              # "csv" or "parquet"
+  figure_dpi: 300
+  figure_format: "png"
