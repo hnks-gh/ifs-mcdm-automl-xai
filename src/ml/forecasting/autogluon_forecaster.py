@@ -379,6 +379,9 @@ def train_predictors(
                 ts_df,
                 presets=config.ml.forecasting.presets,
                 refit_full=config.ml.forecasting.refit_full,
+                # For small datasets (14 years), AutoGluon automatically
+                # adjusts validation windows. We rely on its internal logic
+                # rather than specifying explicit num_val_windows.
                 random_seed=config.ml.forecasting.random_state,
             )
 
@@ -446,7 +449,8 @@ def forecast_all_targets(
 
         try:
             # Generate forecast (AutoGluon returns TimeSeriesDataFrame)
-            forecast_ts = predictor.predict(as_oos=False)
+            # Note: as_oos parameter not supported in current AutoGluon versions
+            forecast_ts = predictor.predict()
 
             # forecast_ts has MultiIndex: (item_id, timestamp)
             # Extract forecasts for target_year

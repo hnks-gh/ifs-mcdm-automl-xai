@@ -322,7 +322,7 @@ ml:
   forecasting:
     target_year: 2025
     prediction_length: 1
-    presets: "best_quality"
+    presets: "medium_quality"       # Use medium_quality for better balance
     refit_full: true
     known_covariates_names: null     # no future-known covariates
     eval_metric: "MASE"
