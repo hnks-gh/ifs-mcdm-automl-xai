@@ -389,6 +389,15 @@ class Regime:
         return len(self.years)
 
 
+class DataConfigExt(DataConfig):
+    """Extended DataConfig with computed properties."""
+    
+    @property
+    def n_years(self) -> int:
+        """Number of years in the dataset."""
+        return len(self.years)
+
+
 @dataclass
 class WeightVector:
     """

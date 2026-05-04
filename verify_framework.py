@@ -205,7 +205,7 @@ class FrameworkAudit:
                         )
                     
                     # Verify expected shape (882 rows x 31 columns)
-                    expected_rows = self.config.data.n_years * self.config.data.n_provinces
+                    expected_rows = len(self.config.data.years) * self.config.data.n_provinces
                     if imputed_df.shape[0] == expected_rows:
                         logger.info(f"   ✅ Panel row count correct: {expected_rows}")
                     else:
@@ -328,7 +328,7 @@ class FrameworkAudit:
             
             integrity_checks = {
                 "province_count": self.config.data.n_provinces,
-                "year_count": self.config.data.n_years,
+                "year_count": len(self.config.data.years),
                 "subcriteria_count": self.config.data.n_subcriteria
             }
             
@@ -340,7 +340,7 @@ class FrameworkAudit:
             
             if weights_dir.exists():
                 weight_files = list(weights_dir.glob("*.csv"))
-                expected_years = self.config.data.n_years
+                expected_years = len(self.config.data.years)
                 actual_years = len(weight_files)
                 
                 if actual_years == expected_years:
@@ -355,7 +355,7 @@ class FrameworkAudit:
             rankings_dir = mcdm_dir / "rankings"
             if rankings_dir.exists():
                 ranking_files = list(rankings_dir.glob("*.csv"))
-                expected_rankings = self.config.data.n_years * 3  # 3 methods
+                expected_rankings = len(self.config.data.years) * 3  # 3 methods
                 actual_rankings = len(ranking_files)
                 
                 if actual_rankings == expected_rankings:

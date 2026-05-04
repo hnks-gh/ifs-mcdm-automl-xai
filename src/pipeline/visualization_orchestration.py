@@ -410,8 +410,116 @@ class VisualizationOrchestrator:
 
 
 # ============================================================================
-# CONVENIENCE FUNCTION
+# CONVENIENCE FUNCTIONS - 2-PHASE VISUALIZATION SYSTEM
 # ============================================================================
+
+def orchestrate_phase1_mcdm_visualizations(
+    output_base_dir: Path = Path("output"),
+    mcdm_data: Optional[Dict[str, Any]] = None,
+) -> VisualizationSummary:
+    """
+    Phase 1: Generate MCDM visualizations only (after weighting & ranking).
+    
+    This phase produces visualizations for:
+    - Criteria and sub-criteria weights over time
+    - Rankings by method and year
+    - Temporal stability and sensitivity analysis
+    
+    Executes independently before ML pipeline starts, enabling early validation
+    of MCDM outputs without waiting for forecasting/SHAP completion.
+    
+    Args:
+        output_base_dir: Base output directory
+        mcdm_data: Dict with MCDM analysis results
+            Keys: 'criteria_weights', 'subcriteria_weights', 'rankings_dict',
+                  'scores_dict', 'stability_results', 'sensitivity_results'
+        
+    Returns:
+        VisualizationSummary with MCDM-only results
+    """
+    logger.info("\n" + "=" * 80)
+    logger.info("PHASE 1: MCDM VISUALIZATIONS (Independent)")
+    logger.info("Generating weighting, ranking, and analysis visualizations...")
+    logger.info("=" * 80)
+    
+    orchestrator = VisualizationOrchestrator(output_base_dir)
+    
+    # Generate MCDM visualizations only
+    mcdm_results = {}
+    if mcdm_data:
+        mcdm_results = orchestrator.generate_mcdm_visualizations(**mcdm_data)
+    
+    # Create summary (MCDM only)
+    summary = orchestrator.generate_visualization_manifest(mcdm_results, {})
+    
+    # Create manifest CSVs
+    orchestrator.create_manifest_csv(summary)
+    
+    # Validation
+    validation = orchestrator.validate_outputs(summary)
+    orchestrator.generate_validation_report(summary, validation)
+    
+    # Print summary
+    orchestrator.print_summary(summary, validation)
+    
+    logger.info("✓ Phase 1 MCDM visualizations completed")
+    return summary
+
+
+def orchestrate_phase2_ml_xai_visualizations(
+    output_base_dir: Path = Path("output"),
+    ml_data: Optional[Dict[str, Any]] = None,
+) -> VisualizationSummary:
+    """
+    Phase 2: Generate ML/XAI visualizations only (after forecasting & SHAP).
+    
+    This phase produces visualizations for:
+    - Imputation quality (before/after statistics)
+    - Forecasting results (2025 predictions vs 2024 baseline)
+    - SHAP explainability (feature importance, waterfall plots)
+    
+    Executes independently after ML pipeline completes, modular design allows
+    MCDM visualizations to be validated while ML pipeline is still running.
+    
+    Args:
+        output_base_dir: Base output directory
+        ml_data: Dict with ML analysis results
+            Keys: 'before_imputation_stats', 'after_imputation_stats',
+                  'forecast_2025', 'historical_2024', 'shap_importance',
+                  'shap_values_dict', 'forecast_with_shap', 'shap_with_values',
+                  'base_value'
+        
+    Returns:
+        VisualizationSummary with ML/XAI-only results
+    """
+    logger.info("\n" + "=" * 80)
+    logger.info("PHASE 2: ML/XAI VISUALIZATIONS (Independent)")
+    logger.info("Generating imputation, forecasting, and SHAP visualizations...")
+    logger.info("=" * 80)
+    
+    orchestrator = VisualizationOrchestrator(output_base_dir)
+    
+    # Generate ML visualizations only
+    ml_results = {}
+    if ml_data:
+        ml_results = orchestrator.generate_ml_visualizations(**ml_data)
+    
+    # Create summary (ML only)
+    summary = orchestrator.generate_visualization_manifest({}, ml_results)
+    
+    # Create manifest CSVs
+    orchestrator.create_manifest_csv(summary)
+    
+    # Validation
+    validation = orchestrator.validate_outputs(summary)
+    orchestrator.generate_validation_report(summary, validation)
+    
+    # Print summary
+    orchestrator.print_summary(summary, validation)
+    
+    logger.info("✓ Phase 2 ML/XAI visualizations completed")
+    return summary
+
 
 def orchestrate_phase10_visualizations(
     output_base_dir: Path = Path("output"),
@@ -419,7 +527,12 @@ def orchestrate_phase10_visualizations(
     ml_data: Optional[Dict[str, Any]] = None,
 ) -> VisualizationSummary:
     """
-    Convenience function to orchestrate all Phase 10 visualizations.
+    Convenience function to orchestrate all Phase 10 visualizations (monolithic).
+    
+    Note: This is for backward compatibility. For production use, prefer the
+    2-phase approach:
+    - orchestrate_phase1_mcdm_visualizations() after MCDM pipeline
+    - orchestrate_phase2_ml_xai_visualizations() after ML pipeline
     
     Args:
         output_base_dir: Base output directory

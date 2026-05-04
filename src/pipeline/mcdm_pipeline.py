@@ -331,7 +331,7 @@ class MCDMPipeline:
                     temporal_result = run_temporal_stability(
                         self.panel.data,
                         self.config.mcdm.weighting,
-                        self.config.analysis.weighting.temporal_stability,
+                        self.config.mcdm.analysis.weighting.temporal_stability,
                         self.config.mcdm,
                     )
                     self.temporal_analysis = temporal_result
@@ -342,7 +342,7 @@ class MCDMPipeline:
                 # Ranking validation (this is lightweight)
                 logger.info("  → Ranking validation (inter-method, discriminatory, persistence)...")
                 try:
-                    ranking_result = run_ranking_validation(self.rankings, self.config)
+                    ranking_result = run_ranking_validation(self.rankings)
                     self.ranking_validation = ranking_result
                     logger.info("  ✓ Ranking validation complete")
                 except Exception as e:
