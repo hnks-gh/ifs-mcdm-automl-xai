@@ -233,6 +233,9 @@ class MLPipeline:
             ts_dfs = build_timeseries_dataframes(self.imputed_panel, self.config)
             logger.info("✓ Built {} TimeSeriesDataFrames", len(ts_dfs))
 
+            # Store ts_dfs for later use in forecasting
+            self.ts_dfs = ts_dfs
+
             # Train predictors
             self.predictors = train_predictors(ts_dfs, self.config)
             logger.info("✓ Trained {} models", len(self.predictors))
@@ -246,10 +249,13 @@ class MLPipeline:
         try:
             if not hasattr(self, "predictors"):
                 raise ForecastingError("Models not trained. Call _train_models() first.")
+            if not hasattr(self, "ts_dfs"):
+                raise ForecastingError("Training data not available. Call _train_models() first.")
 
             # Generate forecasts
             forecasts = forecast_all_targets(
                 self.predictors,
+                self.ts_dfs,
                 target_year=self.config.ml.forecasting.target_year,
             )
 

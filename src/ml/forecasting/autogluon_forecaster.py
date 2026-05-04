@@ -406,18 +406,21 @@ def train_predictors(
 
 def forecast_all_targets(
     predictors: PredictorDict,
+    ts_dfs: Dict[str, "pd.DataFrame"],
     target_year: int = _FORECAST_YEAR,
 ) -> ForecastDict:
     """
     Generate 2025 forecasts for all targets using trained predictors.
 
-    For each predictor, generates forecast_dataframe for 1 step ahead.
+    For each predictor, generates forecast for 1 step ahead using historical data.
     Extracts and formats province-level predictions.
 
     Parameters
     ----------
     predictors : PredictorDict
         Trained predictors from ``train_predictors()``.
+    ts_dfs : dict[str, pd.DataFrame]
+        Training data frames (historical time series per target).
     target_year : int
         Year to forecast for. Default: 2025.
 
@@ -454,9 +457,17 @@ def forecast_all_targets(
         )
 
         try:
-            # Generate forecast (AutoGluon returns TimeSeriesDataFrame)
-            # Note: as_oos parameter not supported in current AutoGluon versions
-            forecast_ts = predictor.predict()
+            # Get historical data for this target
+            if target_sc not in ts_dfs:
+                raise ForecastingError(
+                    f"No training data found for target '{target_sc}'",
+                    context={"target": target_sc},
+                )
+            ts_df = ts_dfs[target_sc]
+
+            # Generate forecast using historical data
+            # AutoGluon uses this data as context to predict next time steps
+            forecast_ts = predictor.predict(data=ts_df)
 
             # forecast_ts has MultiIndex: (item_id, timestamp)
             # Extract forecasts for target_year
