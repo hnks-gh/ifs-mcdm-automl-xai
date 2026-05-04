@@ -136,8 +136,8 @@ class TestMCDMPipelineIntegration(unittest.TestCase):
         pipeline.panel.regimes = regimes
 
         # Test year lookup
-        regime_id = pipeline._get_regime_for_year(2011)
-        self.assertEqual(regime_id, "R1")
+        regime = pipeline._get_regime_for_year(2011)
+        self.assertEqual(regime.regime_id, "R1")
 
     def test_get_regime_for_invalid_year(self) -> None:
         """Test regime lookup fails for non-existent year."""

@@ -432,7 +432,7 @@ def plot_boxplot(data: Dict[str, np.ndarray], title: str, ylabel: str,
     colors = ColorPalette.get_viridis(len(labels))
     bp = ax.boxplot(
         values,
-        labels=labels,
+        tick_labels=labels,
         patch_artist=True,
         widths=0.6,
         showmeans=True,

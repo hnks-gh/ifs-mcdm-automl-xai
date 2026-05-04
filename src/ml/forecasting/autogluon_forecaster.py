@@ -249,6 +249,12 @@ def build_timeseries_dataframes(
             ts_df = imputed_panel[["Province", "Year", target_sc]].copy()
             ts_df.columns = ["item_id", "timestamp", "target"]
 
+            # Convert Year to proper pandas datetime (year-end)
+            # AutoGluon requires datetime index for time series
+            ts_df["timestamp"] = pd.to_datetime(
+                ts_df["timestamp"].astype(str) + "-12-31"
+            )
+
             # Sort by timestamp for AutoGluon
             ts_df = ts_df.sort_values(by=["item_id", "timestamp"]).reset_index(drop=True)
 
@@ -516,6 +522,15 @@ def aggregate_forecasts(
     >>> assert forecast_agg.index.name == "Province"
     """
     logger.info("Aggregating {} forecasts into single table", len(forecasts))
+
+    # Validate that all forecasts have 63 provinces
+    for target_sc, forecast_df in forecasts.items():
+        n_provinces = len(forecast_df)
+        if n_provinces != config.data.n_provinces:
+            raise ForecastingError(
+                f"Target '{target_sc}' has {n_provinces} provinces "
+                f"(expected {config.data.n_provinces})"
+            )
 
     # Start with the Province column from any forecast as index
     first_target = list(forecasts.keys())[0]

@@ -174,23 +174,33 @@ class VisualizationOrchestrator:
         # Aggregate all paths
         all_figures = {}
         all_tables = {}
+        mcdm_figure_count = 0
+        mcdm_table_count = 0
+        ml_figure_count = 0
+        ml_table_count = 0
         
         # MCDM
         if 'weighting' in mcdm_results:
             weighting_viz = mcdm_results['weighting']
             all_figures.update(weighting_viz.figures)
             all_tables.update(weighting_viz.tables)
+            mcdm_figure_count += len(weighting_viz.figures)
+            mcdm_table_count += len(weighting_viz.tables)
         
         if 'ranking' in mcdm_results:
             ranking_viz = mcdm_results['ranking']
             all_figures.update(ranking_viz.figures)
             all_tables.update(ranking_viz.tables)
+            mcdm_figure_count += len(ranking_viz.figures)
+            mcdm_table_count += len(ranking_viz.tables)
         
         # ML
         if 'ml' in ml_results:
             ml_viz = ml_results['ml']
             all_figures.update(ml_viz.figures)
             all_tables.update(ml_viz.tables)
+            ml_figure_count += len(ml_viz.figures)
+            ml_table_count += len(ml_viz.tables)
         
         # Create directories metadata
         output_dirs = {
@@ -208,10 +218,10 @@ class VisualizationOrchestrator:
             timestamp=self.timestamp,
             total_figures=len(all_figures),
             total_tables=len(all_tables),
-            mcdm_figures=len([f for f in all_figures if any(k in str(f) for k in ['weighting', 'ranking'])]),
-            mcdm_tables=len([t for t in all_tables if any(k in str(t) for k in ['weighting', 'ranking'])]),
-            ml_figures=len([f for f in all_figures if 'ml' in str(f)]),
-            ml_tables=len([t for t in all_tables if 'ml' in str(t)]),
+            mcdm_figures=mcdm_figure_count,
+            mcdm_tables=mcdm_table_count,
+            ml_figures=ml_figure_count,
+            ml_tables=ml_table_count,
             output_directories=output_dirs,
             all_figure_paths=all_figures,
             all_table_paths=all_tables,
@@ -434,6 +444,9 @@ def orchestrate_phase10_visualizations(
     
     # Create summary
     summary = orchestrator.generate_visualization_manifest(mcdm_results, ml_results)
+    
+    # Create manifest CSVs
+    orchestrator.create_manifest_csv(summary)
     
     # Validation
     validation = orchestrator.validate_outputs(summary)

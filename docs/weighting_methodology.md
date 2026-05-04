@@ -170,6 +170,19 @@ where $n_r$ is the number of years in regime $r$ contributing to the analysis, a
 
 For example, if a 5-year window includes 3 years from R1 and 2 years from R3, the blended weight is $\frac{3 w_j^{(R1)} + 2 w_j^{(R3)}}{5}$. This proportional blending ensures temporal consistency while respecting changing data availability.
 
+ponding to changing conditions.
+
+### 7.4 Coefficient of Variation (CV)
+
+For each sub-criterion, compute variation of weights across all 10 windows:
+
+$$\text{CV}_j = \frac{\sigma(\mathbf{w}_j)}{\bar{\mathbf{w}}_j}$$
+
+where $\sigma(\mathbf{w}_j) = \sqrt{\frac{1}{10} \sum_{t=1}^{10} (w_j^{(t)} - \bar{w}_j)^2}$ and $\bar{\mathbf{w}}_j = \frac{1}{10} \sum_{t=1}^{10} w_j^{(t)}$.
+
+CV near zero indicates stable sub-criterion importance; CV > 1.0 indicates high variability suggesting sensitive dependence on window composition.
+
+## 8. Mathematical Properties and Validation
 ## 7. Temporal Stability Analysis
 
 Temporal stability assessment evaluates weight robustness across overlapping time windows.
@@ -195,20 +208,7 @@ Measure weight stability through consecutive window RMSD:
 
 $$\text{RMSD}_t = \sqrt{\frac{1}{29} \sum_{j=1}^{29} (w_j^{(t)} - w_j^{(t+1)})^2}$$
 
-Compute sequence $\text{RMSD}_1, \ldots, \text{RMSD}_9$ representing discontinuity between consecutive windows. Lower RMSD indicates more stable weights; higher RMSD indicates weights responding to changing conditions.
-
-### 7.4 Coefficient of Variation (CV)
-
-For each sub-criterion, compute variation of weights across all 10 windows:
-
-$$\text{CV}_j = \frac{\sigma(\mathbf{w}_j)}{\bar{\mathbf{w}}_j}$$
-
-where $\sigma(\mathbf{w}_j) = \sqrt{\frac{1}{10} \sum_{t=1}^{10} (w_j^{(t)} - \bar{w}_j)^2}$ and $\bar{\mathbf{w}}_j = \frac{1}{10} \sum_{t=1}^{10} w_j^{(t)}$.
-
-CV near zero indicates stable sub-criterion importance; CV > 1.0 indicates high variability suggesting sensitive dependence on window composition.
-
-## 8. Mathematical Properties and Validation
-
+Compute sequence $\text{RMSD}_1, \ldots, \text{RMSD}_9$ representing discontinuity between consecutive windows. Lower RMSD indicates more stable weights; higher RMSD indicates weights res
 ### 8.1 Weight Normalization Verification
 
 All weight vectors must satisfy:

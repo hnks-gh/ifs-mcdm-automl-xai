@@ -410,7 +410,7 @@ class MLPipeline:
             if self.forecast_table is not None:
                 forecast_output_path = Path(self.config.output.ml_dir) / "forecasts" / "forecast_2025.csv"
                 forecast_output_path.parent.mkdir(parents=True, exist_ok=True)
-                self.forecast_table.to_csv(forecast_output_path, index=False)
+                self.forecast_table.to_csv(forecast_output_path, index=True)
                 logger.info("✓ Saved forecasts to {}", forecast_output_path)
 
             # Save 2025 MCDM rankings
