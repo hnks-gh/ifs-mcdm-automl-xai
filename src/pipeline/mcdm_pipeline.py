@@ -329,10 +329,10 @@ class MCDMPipeline:
                 logger.info("  → Temporal stability analysis...")
                 try:
                     temporal_result = run_temporal_stability(
-                        self.panel.data,
-                        self.config.mcdm.weighting,
+                        self.ifs_panel,
+                        self.panel.regimes,
                         self.config.mcdm.analysis.weighting.temporal_stability,
-                        self.config.mcdm,
+                        self.config,
                     )
                     self.temporal_analysis = temporal_result
                     logger.info("  ✓ Temporal stability complete")
@@ -342,7 +342,21 @@ class MCDMPipeline:
                 # Ranking validation (this is lightweight)
                 logger.info("  → Ranking validation (inter-method, discriminatory, persistence)...")
                 try:
-                    ranking_result = run_ranking_validation(self.rankings)
+                    # Restructure rankings: from {method: {year: result}} to {year: {method: result}}
+                    rankings_by_year = {}
+                    for method, year_results in self.rankings.items():
+                        for year, result in year_results.items():
+                            if year not in rankings_by_year:
+                                rankings_by_year[year] = {}
+                            # Convert string method name to RankingMethod enum
+                            try:
+                                method_enum = RankingMethod(method)
+                            except ValueError:
+                                logger.warning(f"Invalid ranking method: {method}")
+                                continue
+                            rankings_by_year[year][method_enum] = result
+                    
+                    ranking_result = run_ranking_validation(rankings_by_year)
                     self.ranking_validation = ranking_result
                     logger.info("  ✓ Ranking validation complete")
                 except Exception as e:

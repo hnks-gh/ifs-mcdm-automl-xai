@@ -285,24 +285,24 @@ def compute_cv_per_subcriteria(
 # =============================================================================
 
 def run_temporal_stability(
-    panel_dict: Dict[int, "pd.DataFrame"],  # type: ignore[name-defined]
-    weighting_config,  # WeightingConfig
+    ifs_panel: Dict[int, "IFSMatrix"],  # type: ignore[name-defined]
+    regimes: Dict[str, "Regime"],  # type: ignore[name-defined]
     analysis_config,  # TemporalStabilityConfig
-    mcdm_config,  # MCDMConfig (for regime handling, etc.)
+    config,  # AppConfig (for full configuration access)
 ) -> TemporalStabilityResult:
     """
     Execute full temporal stability analysis.
 
     Parameters
     ----------
-    panel_dict : dict[int, pd.DataFrame]
-        Raw PAPI panel: year -> DataFrame (provinces × sub-criteria).
-    weighting_config : WeightingConfig
-        Weighting algorithm configuration.
+    ifs_panel : dict[int, IFSMatrix]
+        IFS-converted PAPI panel: year -> IFSMatrix.
+    regimes : dict[str, Regime]
+        Regime metadata (for year-to-regime mapping).
     analysis_config : TemporalStabilityConfig
         Window size and other stability analysis parameters.
-    mcdm_config : MCDMConfig
-        Full MCDM configuration (includes regime definitions, etc.).
+    config : AppConfig
+        Full application configuration (includes data, MCDM, etc.).
 
     Returns
     -------
@@ -315,7 +315,7 @@ def run_temporal_stability(
         If window generation or weight computation fails.
     """
     # Generate overlapping windows
-    all_years = sorted(panel_dict.keys())
+    all_years = sorted(ifs_panel.keys())
     logger.info(
         f"Generating {analysis_config.n_windows} overlapping windows of size "
         f"{analysis_config.window_size} from {len(all_years)} years"
@@ -336,14 +336,14 @@ def run_temporal_stability(
         logger.info(f"Computing weights for window {i+1}/{len(windows)}: years {window_years}")
 
         # Create sub-panel for this window
-        window_panel = {year: panel_dict[year] for year in window_years}
+        window_panel = {year: ifs_panel[year] for year in window_years}
 
         try:
             # Compute IF-CRITIC weights for this window
             weights_per_year = compute_weights_for_all_years(
                 window_panel,
-                weighting_config,
-                mcdm_config,
+                regimes,
+                config,
             )
 
             # Average weights across the window (or select representative year)

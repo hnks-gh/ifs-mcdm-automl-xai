@@ -201,7 +201,8 @@ class MLPipeline:
             if not imputed_path.exists():
                 raise FileNotFoundError(
                     f"Imputed panel not found at {imputed_path}. "
-                    f"Run Phase 6 (imputation) first."
+                    f"Please ensure MICE imputation has been completed successfully. "
+                    f"Verify: output/ml/imputed/ contains panel_imputed.parquet"
                 )
 
             self.imputed_panel = pd.read_parquet(imputed_path)
